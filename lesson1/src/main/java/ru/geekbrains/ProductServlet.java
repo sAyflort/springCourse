@@ -6,10 +6,14 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.io.PrintWriter;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @WebServlet(urlPatterns = "/product/*")
 public class ProductServlet extends HttpServlet {
+    private static final Pattern PARAM_PATTERN = Pattern.compile("\\/(\\d+)");
 
     private ProductRepository productRepository;
 
@@ -30,36 +34,25 @@ public class ProductServlet extends HttpServlet {
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-        PrintWriter wr = resp.getWriter();
-        wr.println("<table>");
-        wr.println("<tr>");
-        wr.println("<th>Id</th>");
-        wr.println("<th>Name</th>");
-        wr.println("<th>Cost</th>");
-        wr.println("</tr>");
-
-        if(req.getPathInfo() == null) {
-            for (Product product: productRepository.findAll()
-            ) {
-                wr.println("<tr>");
-                wr.println("<th>"+product.getId()+"</th>");
-                wr.println("<th>"+product.getTitle()+"</th>");
-                wr.println("<th>"+product.getCost()+"</th>");
-                wr.println("</tr>");
-            }
+        if (req.getPathInfo() == null || req.getPathInfo().equals("/")) {
+            req.setAttribute("products", productRepository.findAll());
+            getServletContext().getRequestDispatcher("/product.jsp").forward(req, resp);
         } else {
-            try {
-                int id = Integer.parseInt(req.getPathInfo().split("/")[1]);
-                wr.println("<tr>");
-                wr.println("<th>"+productRepository.findById(id).getId()+"</th>");
-                wr.println("<th>"+productRepository.findById(id).getTitle()+"</th>");
-                wr.println("<th>"+productRepository.findById(id).getCost()+"</th>");
-                wr.println("</tr>");
-            } catch (NumberFormatException e) {
-
+            Matcher matcher = PARAM_PATTERN.matcher(req.getPathInfo());
+            if (matcher.matches()) {
+                int id = Integer.parseInt(matcher.group(1));
+                Product product = this.productRepository.findById(id);
+                if (product == null) {
+                    resp.getWriter().println("Product not found");
+                    resp.setStatus(404);
+                    return;
+                }
+                req.setAttribute("products", product);
+                getServletContext().getRequestDispatcher("/product.jsp").forward(req, resp);
+            } else {
+                resp.getWriter().println("Bad parameter value");
+                resp.setStatus(400);
             }
         }
-        wr.println("</table>");
-
     }
 }
